@@ -1,0 +1,94 @@
+name: crux
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: crux-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-crux}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_local_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-crux}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # DB-level bootstrap only (extensions). Runs once on first volume init.
+      - ./database/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-crux} -d ${POSTGRES_DB:-crux}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks: [crux]
+
+  backend:
+    build:
+      # Repo-root context so the image can COPY database/seed.sql.
+      context: .
+      dockerfile: backend/Dockerfile
+      target: runtime
+    image: crux-backend:local
+    container_name: crux-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-crux}:${POSTGRES_PASSWORD:-change_me_local_dev}@postgres:5432/${POSTGRES_DB:-crux}
+      ENV: ${ENV:-development}
+      ADMIN_PASSCODE: ${ADMIN_PASSCODE:-belay-on}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      RUN_MIGRATIONS_ON_START: "true"
+      SEED_ON_STARTUP: "true"
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      # python urllib (no curl in slim image). /health is always 200 when up.
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+    networks: [crux]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /api
+    image: crux-frontend:local
+    container_name: crux-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # Runtime URL the Next.js /api proxy forwards to (server-side only).
+      BACKEND_URL: http://backend:8000
+      NODE_ENV: production
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "require('http').get('http://localhost:3000/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks: [crux]
+
+volumes:
+  postgres_data:
+    name: crux_postgres_data
+
+networks:
+  crux:
+    name: crux
+    driver: bridge

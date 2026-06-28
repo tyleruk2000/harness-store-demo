@@ -1,0 +1,26 @@
+[project]
+name = "crux-backend"
+version = "1.0.0"
+description = "Crux climbing-gear store — FastAPI backend"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["app/tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "postgres: test requires a real PostgreSQL backend (FOR UPDATE / concurrency)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/tests/*", "app/db/wait_for_db.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

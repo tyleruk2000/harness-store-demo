@@ -3,3 +3,38 @@
 .dolt/
 *.db
 .beads-credential-key
+
+# --- secrets / env ---
+.env
+.env.local
+.env.*.local
+
+# --- node / next ---
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# --- python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- test + coverage artifacts ---
+.test-output/
+coverage/
+playwright-report/
+test-results/
+frontend/playwright/.cache/
+
+# --- misc ---
+.DS_Store
+*.log
+.idea/
+.vscode/

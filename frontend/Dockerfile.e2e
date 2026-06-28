@@ -1,0 +1,9 @@
+# Playwright E2E runner. Uses the official Playwright image (browsers + OS deps
+# preinstalled). Version must track the @playwright/test version in package.json.
+FROM mcr.microsoft.com/playwright:v1.49.1-jammy
+WORKDIR /app
+ENV CI=true
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+CMD ["npx", "playwright", "test"]

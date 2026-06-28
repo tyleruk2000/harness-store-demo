@@ -1,0 +1,7 @@
+# Test / dev dependencies (pinned). Includes runtime deps.
+-r requirements.txt
+pytest==8.3.4
+pytest-cov==6.0.0
+coverage==7.6.10
+httpx==0.28.1
+faker==33.1.0

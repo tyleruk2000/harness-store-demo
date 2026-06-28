@@ -1,0 +1,135 @@
+# Runs the FULL test suite in Docker against throwaway, ephemeral databases.
+# Invoke via ./scripts/test.sh (or `make test`). Reports land in ./.test-output.
+name: crux-test
+
+services:
+  # ---------- Backend unit/integration (pytest) ----------
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: crux_test
+    tmpfs:
+      - /var/lib/postgresql/data # ephemeral, fast, no residue
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d crux_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    networks: [test]
+
+  backend-tests:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: test
+    user: root # write coverage reports to the mounted host dir
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://test:test@postgres-test:5432/crux_test
+      TEST_DATABASE_URL: postgresql+psycopg://test:test@postgres-test:5432/crux_test
+    volumes:
+      - ./.test-output:/results
+    command:
+      - pytest
+      - --cov=app
+      - --cov-report=term-missing
+      - --cov-report=html:/results/backend-cov
+      - --junitxml=/results/backend-junit.xml
+      - --cov-fail-under=85
+    networks: [test]
+
+  # ---------- Frontend unit/component (Vitest) ----------
+  frontend-unit:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: test
+    command: ["npm", "run", "test"]
+    networks: [test]
+
+  # ---------- E2E full stack (Playwright vs real seeded backend) ----------
+  postgres-e2e:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: crux
+      POSTGRES_PASSWORD: crux
+      POSTGRES_DB: crux
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crux -d crux"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    networks: [test]
+
+  backend-e2e:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: runtime
+    depends_on:
+      postgres-e2e:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://crux:crux@postgres-e2e:5432/crux
+      ADMIN_PASSCODE: belay-on
+      RUN_MIGRATIONS_ON_START: "true"
+      SEED_ON_STARTUP: "true"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/ready').status==200 else 1)"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks: [test]
+
+  frontend-e2e:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /api
+    depends_on:
+      backend-e2e:
+        condition: service_healthy
+    environment:
+      BACKEND_URL: http://backend-e2e:8000
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "require('http').get('http://localhost:3000/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    networks: [test]
+
+  e2e:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.e2e
+    depends_on:
+      frontend-e2e:
+        condition: service_healthy
+      backend-e2e:
+        condition: service_healthy
+    environment:
+      PLAYWRIGHT_BASE_URL: http://frontend-e2e:3000
+      ADMIN_PASSCODE: belay-on
+      CI: "true"
+    volumes:
+      - ./.test-output/playwright-report:/app/playwright-report
+    command: ["npx", "playwright", "test", "--reporter=line,html"]
+    networks: [test]
+
+networks:
+  test:
+    name: crux-test

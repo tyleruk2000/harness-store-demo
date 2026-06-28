@@ -1,0 +1,22 @@
+# Root build context (used by the backend image). Keep it lean.
+.git
+.beads
+.dolt
+**/node_modules
+**/.next
+**/.venv
+**/venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.coverage
+**/htmlcov
+**/_test_*.db
+.test-output
+**/playwright-report
+**/test-results
+frontend
+.env
+*.log
+.DS_Store

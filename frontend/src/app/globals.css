@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Crux design tokens — OKLCH.
+ * Neutrals are tinted toward the indigo brand hue (~286), never warm, so the
+ * off-white reads as "ours" rather than the generic cream default.
+ * Contrast targets: body text >= 4.5:1, large text >= 3:1 on --color-bg.
+ */
+/* Tokens are stored as bare OKLCH channels (L C H) so Tailwind can inject the
+ * <alpha-value> for opacity modifiers (e.g. bg-primary-600/40). */
+:root {
+  --color-bg: 0.985 0.004 286;
+  --color-surface: 1 0 0;
+  --color-surface-2: 0.975 0.006 286;
+  --color-border: 0.92 0.008 286;
+  --color-border-strong: 0.86 0.01 286;
+
+  --color-ink: 0.25 0.03 285; /* ~12:1 on bg */
+  --color-ink-strong: 0.2 0.035 285;
+  --color-muted: 0.48 0.028 285; /* >=4.5:1 — safe for small body text */
+  --color-muted-2: 0.58 0.022 285; /* >=3:1 — large/decorative text only */
+
+  --color-primary-50: 0.97 0.014 285;
+  --color-primary-100: 0.94 0.028 285;
+  --color-primary-200: 0.88 0.055 284;
+  --color-primary-300: 0.8 0.09 283;
+  --color-primary-400: 0.7 0.14 282;
+  --color-primary-500: 0.6 0.18 281;
+  --color-primary-600: 0.52 0.195 280; /* primary CTA fill; white text >=4.5:1 */
+  --color-primary-700: 0.44 0.18 280; /* hover / links on white */
+  --color-primary-800: 0.36 0.15 281;
+  --color-primary-900: 0.28 0.11 282;
+  --color-primary-950: 0.2 0.075 283;
+
+  --color-accent-400: 0.76 0.165 58;
+  --color-accent-500: 0.7 0.185 55; /* vibrant orange — fill/decoration only */
+  --color-accent-600: 0.64 0.18 50;
+  --color-accent-700: 0.55 0.155 48; /* accent text on tinted bg */
+
+  /* Darkened so they clear AA (>=4.5:1) as small text on the near-white bg. */
+  --color-success: 0.5 0.13 150;
+  --color-warning: 0.62 0.14 70;
+  --color-danger: 0.5 0.2 25;
+  --color-info: 0.5 0.13 240;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-feature-settings: "cv01", "ss01";
+  }
+
+  h1, h2, h3 {
+    @apply font-display text-ink-strong;
+    text-wrap: balance;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Consistent, visible focus ring across the whole app. */
+  :focus-visible {
+    outline: 2px solid oklch(var(--color-primary-600));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: oklch(var(--color-primary-200));
+    color: oklch(var(--color-ink-strong));
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Tabular figures for prices, order numbers, technical specs. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Skeleton shimmer used by loading states. */
+  .skeleton {
+    @apply relative overflow-hidden bg-primary-100/60;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      oklch(1 0 0 / 0.55),
+      transparent
+    );
+    animation: shimmer 1.6s infinite;
+  }
+}
+
+/* Reveal-on-mount helper: content is visible by default; the animation only
+ * enhances it, so headless renderers / disabled JS still show everything. */
+.reveal {
+  animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Cart drawer (Radix Dialog keeps nodes mounted during the closed animation). */
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes overlay-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes drawer-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes drawer-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
+
+.cart-overlay[data-state="open"] { animation: overlay-in 0.2s ease both; }
+.cart-overlay[data-state="closed"] { animation: overlay-out 0.18s ease both; }
+.cart-panel[data-state="open"] { animation: drawer-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.cart-panel[data-state="closed"] { animation: drawer-out 0.2s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton::after {
+    animation: none;
+  }
+}
