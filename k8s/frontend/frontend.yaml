@@ -1,0 +1,51 @@
+# Manifest for the crux-frontend Harness Service.
+# Single managed workload => the Canary strategy operates cleanly on it.
+# Image comes from this Service's PRIMARY artifact (crux-frontend).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crux-frontend
+  labels:
+    app: crux-frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: crux-frontend
+  template:
+    metadata:
+      labels:
+        app: crux-frontend
+    spec:
+      containers:
+        - name: crux-frontend
+          image: <+artifact.image>
+          ports:
+            - containerPort: 3000
+          env:
+            - name: BACKEND_URL
+              value: http://crux-backend:8000
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crux-frontend
+spec:
+  selector:
+    app: crux-frontend
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP

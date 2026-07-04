@@ -1,0 +1,108 @@
+# Manifest for the crux-backend Harness Service.
+#   crux-backend  = the managed workload (Canary/Rolling target).
+#                   Image comes from this Service's PRIMARY artifact (crux-backend).
+#   crux-postgres = direct-apply supporting datastore so the backend has a DB.
+#                   In production this would be a managed DB (RDS/Cloud SQL) or a
+#                   separately-provisioned StatefulSet + PVC, NOT part of the app
+#                   release. Kept here (ephemeral) only to make the lab self-contained.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crux-postgres
+  labels:
+    app: crux-postgres
+  annotations:
+    harness.io/direct-apply: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crux-postgres
+  template:
+    metadata:
+      labels:
+        app: crux-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: crux
+            - name: POSTGRES_PASSWORD
+              value: crux
+            - name: POSTGRES_DB
+              value: crux
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crux-postgres
+spec:
+  selector:
+    app: crux-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crux-backend
+  labels:
+    app: crux-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: crux-backend
+  template:
+    metadata:
+      labels:
+        app: crux-backend
+    spec:
+      containers:
+        - name: crux-backend
+          image: <+artifact.image>
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              value: postgresql+psycopg://crux:crux@crux-postgres:5432/crux
+            - name: ADMIN_PASSCODE
+              value: belay-on
+            - name: RUN_MIGRATIONS_ON_START
+              value: "true"
+            - name: SEED_ON_STARTUP
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crux-backend
+spec:
+  selector:
+    app: crux-backend
+  ports:
+    - port: 8000
+      targetPort: 8000
