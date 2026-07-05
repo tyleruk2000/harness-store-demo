@@ -71,7 +71,7 @@ spec:
     spec:
       containers:
         - name: crux-backend
-          image: <+artifact.image>
+          image: {{.Values.image}}
           ports:
             - containerPort: 8000
           env:

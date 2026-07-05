@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: crux-frontend
-          image: <+artifact.image>
+          image: {{.Values.image}}
           ports:
             - containerPort: 3000
           env:
