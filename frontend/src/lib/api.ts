@@ -42,11 +42,31 @@ async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T>
     init.body = JSON.stringify(body);
   }
 
-  let res: Response;
-  try {
-    res = await fetch(`${apiBase()}${path}`, init);
-  } catch (err) {
-    throw new ApiError(0, "Network error — is the backend running?", err);
+  const url = `${apiBase()}${path}`;
+
+  // Resilience against the keep-alive reuse race: a Node HTTP server closes idle
+  // connections after keepAliveTimeout (5s by default). If the client reuses a
+  // connection the server has just closed — e.g. the order POST fired after a
+  // user spent >5s filling the checkout form — fetch() throws BEFORE the request
+  // is ever delivered. Because the server never received it, retrying on a fresh
+  // connection is safe (no duplicate writes) and transparently recovers. This is
+  // exactly what browsers already do for idempotent GETs; we extend it to writes.
+  let res: Response | undefined;
+  let networkErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      res = await fetch(url, init);
+      networkErr = undefined;
+      break;
+    } catch (err) {
+      networkErr = err;
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+      }
+    }
+  }
+  if (!res) {
+    throw new ApiError(0, "Network error — is the backend running?", networkErr);
   }
 
   if (!res.ok) {
