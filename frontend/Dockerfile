@@ -32,9 +32,12 @@ RUN groupadd --gid 1001 nodejs && useradd --uid 1001 --gid nodejs --create-home 
 COPY --from=build /app/public ./public
 COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Startup wrapper that raises the HTTP keepAliveTimeout to avoid the browser
+# reusing a server-closed idle connection (the checkout "Network error" bug).
+COPY --chown=nextjs:nodejs server-entry.js ./server-entry.js
 USER nextjs
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "server-entry.js"]
 
 # ---------- test (Vitest unit/component) ----------
 FROM node:20-bookworm-slim AS test
