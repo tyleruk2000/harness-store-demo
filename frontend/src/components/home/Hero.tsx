@@ -32,7 +32,7 @@ export function Hero() {
         <div className="reveal lg:col-span-7">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm font-medium backdrop-blur-sm">
             <MountainSnow className="size-4 text-accent-400" aria-hidden />
-            New season gear, freshly racked
+            New season gear!
           </span>
 
           <h1 className="mt-5 max-w-2xl font-display text-[clamp(2.5rem,6vw,4.75rem)] font-semibold leading-[0.98] tracking-tight text-white">
