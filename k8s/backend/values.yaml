@@ -1,3 +1,1 @@
-# Harness resolves <+artifact.image> here (from the Service's PRIMARY artifact),
-# then the manifest pulls it in via {{.Values.image}}.
 image: <+artifact.image>
